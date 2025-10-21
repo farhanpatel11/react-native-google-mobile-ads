@@ -67,4 +67,19 @@ export enum AdEventType {
    * The user closed the ad and has returned back to your application.
    */
   CLOSED = 'closed',
+
+  /**
+   * The ad impression was recorded.
+   */
+  IMPRESSION = 'impression',
+
+  /**
+   * The ad size changed.
+   */
+  SIZE_CHANGE = 'size_change',
+
+  /**
+   * An app event was triggered by the ad.
+   */
+  APP_EVENT = 'app_event',
 }

@@ -31,6 +31,7 @@ class ReactNativeGoogleMobileAdsPackage : TurboReactPackage() {
   ): List<ViewManager<*, *>> {
     return listOf(
       ReactNativeGoogleMobileAdsBannerAdViewManager(),
+      ReactNativeGoogleMobileAdsPreloadedBannerViewManager(),
       ReactNativeGoogleMobileAdsNativeAdViewManager(reactContext),
       ReactNativeGoogleMobileAdsMediaViewManager(reactContext)
     )
@@ -46,6 +47,7 @@ class ReactNativeGoogleMobileAdsPackage : TurboReactPackage() {
       ReactNativeGoogleMobileAdsRewardedModule.NAME -> return ReactNativeGoogleMobileAdsRewardedModule(reactContext)
       ReactNativeGoogleMobileAdsRewardedInterstitialModule.NAME -> return ReactNativeGoogleMobileAdsRewardedInterstitialModule(reactContext)
       ReactNativeGoogleMobileAdsNativeModule.NAME -> return ReactNativeGoogleMobileAdsNativeModule(reactContext)
+      ReactNativeGoogleMobileAdsBannerModule.NAME -> return ReactNativeGoogleMobileAdsBannerModule(reactContext)
     }
     return null
   }
@@ -121,6 +123,15 @@ class ReactNativeGoogleMobileAdsPackage : TurboReactPackage() {
         ReactModuleInfo(
           ReactNativeGoogleMobileAdsNativeModule.NAME,
           ReactNativeGoogleMobileAdsNativeModule.NAME,
+          false,
+          false,
+          false,
+          isTurboModule,
+        )
+      moduleInfos[ReactNativeGoogleMobileAdsBannerModule.NAME] =
+        ReactModuleInfo(
+          ReactNativeGoogleMobileAdsBannerModule.NAME,
+          ReactNativeGoogleMobileAdsBannerModule.NAME,
           false,
           false,
           false,

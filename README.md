@@ -46,6 +46,55 @@ Banner ad units display rectangular ads that occupy a portion of an app's layout
 They stay on screen while users are interacting with the app, either anchored at the top or bottom of the screen or inline with content as the user scrolls.
 Banner ads can refresh automatically after a certain period of time.
 
+#### Preloaded Banner Ads (NEW)
+
+Preloaded banner ads allow you to load ads in advance and display them instantly when needed. This is particularly useful for reducing initial render time when navigating to screens with ads, or for instant ad display in list/scroll views.
+
+```typescript
+import {
+  PreloadedBannerAd,
+  PreloadedBannerAdView,
+  BannerAdSize,
+  TestIds,
+} from 'react-native-google-mobile-ads';
+
+// Preload ads during app initialization or navigation
+const preloadedAds = await PreloadedBannerAd.preload([
+  {
+    unitId: TestIds.BANNER,
+    sizes: [BannerAdSize.BANNER],
+    requestOptions: {
+      requestAgent: 'MyApp',
+    },
+  },
+]);
+
+// Later, display instantly
+<PreloadedBannerAdView
+  preloadedAd={preloadedAds[0]}
+  onAdLoaded={event => console.log('Ad loaded:', event.width, 'x', event.height)}
+  onAdFailedToLoad={event => console.error('Ad failed:', event.message)}
+/>;
+
+// Cleanup when done
+preloadedAds.forEach(ad => ad.destroy());
+```
+
+**Key Benefits:**
+
+- ⚡ **Instant Display**: Ads appear immediately when component mounts
+- 🎯 **Batch Preloading**: Load multiple ads at once for efficiency
+- 💾 **Memory Efficient**: In-memory cache cleared on consumption or app termination
+- 🔄 **Event Handling**: Full event support (loaded, failed, clicked, paid, etc.)
+- 📱 **Android Ready**: Full implementation on Android, iOS stubs available
+
+**Important Notes:**
+
+- Preloaded ads are cached in memory and cleared when consumed or app terminates
+- AdMob team has confirmed policy compliance for this approach
+- Currently Android-only implementation (iOS stubs throw "not implemented" errors)
+- Separate API from existing BannerAd component for clean separation
+
 #### Anchored adaptive
 
 A dynamically sized banner that is full-width and auto-height. Anchored adaptive banners are expected to be always on-screen, locked to the screen’s top or bottom.
@@ -119,7 +168,7 @@ This package can be used in both The Old and [The New Architecture](https://reac
 When using The New Architecture, some legacy code will still be used though. See status below:
 
 | Platform | Feature                                                                                                                                                        | Status      |
-| -------- |----------------------------------------------------------------------------------------------------------------------------------------------------------------| ----------- |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | iOS      | Mobile Ads SDK Methods (Turbo Native Module)                                                                                                                   | ✅ Complete |
 | iOS      | Banners (Fabric Native Component)                                                                                                                              | ✅ Complete |
 | iOS      | Full Screen Ads (Turbo Native Module)                                                                                                                          | ✅ Complete |
