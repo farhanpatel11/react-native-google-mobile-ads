@@ -37,6 +37,7 @@ type PreloadedBannerAdListenerPayload<EventType extends AdEventType> =
  */
 export class PreloadedBannerAd {
   readonly unitId: string;
+  readonly size: string;
   readonly width: number;
   readonly height: number;
 
@@ -45,6 +46,7 @@ export class PreloadedBannerAd {
 
   private constructor(props: PreloadedBannerAdProps) {
     this.unitId = props.unitId;
+    this.size = props.size;
     this.width = props.width;
     this.height = props.height;
 
@@ -71,6 +73,7 @@ export class PreloadedBannerAd {
     if (this.unitId !== unitId) {
       return;
     }
+    console.log('onPreloadedBannerAdEvent', unitId, type, data);
     this.eventEmitter.emit(type, data);
   }
 
@@ -155,6 +158,7 @@ export class PreloadedBannerAd {
     }
 
     const props = await NativeGoogleMobileAdsBannerModule.preload(validatedRequests);
+    console.log('Preloaded ads:', props);
     return props.map(prop => new PreloadedBannerAd(prop));
   }
 }

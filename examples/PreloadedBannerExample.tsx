@@ -32,6 +32,7 @@ export function PreloadedBannerExample() {
     // Preload ads during component initialization
     const preloadAds = async () => {
       try {
+        console.log('Preloading ads example...');
         const ads = await PreloadedBannerAd.preload([
           {
             unitId: TestIds.BANNER,

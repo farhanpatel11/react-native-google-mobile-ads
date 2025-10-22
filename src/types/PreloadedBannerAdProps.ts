@@ -15,10 +15,12 @@
  *
  */
 
+import { ViewStyle } from 'react-native';
 import { PreloadedBannerAd } from '../ads/PreloadedBannerAd';
 
 export interface PreloadedBannerAdViewProps {
   preloadedAd: PreloadedBannerAd;
+  style?: ViewStyle;
   onAdLoaded?: (event: { width: number; height: number }) => void;
   onAdFailedToLoad?: (event: { code: number; message: string }) => void;
   onAdOpened?: () => void;

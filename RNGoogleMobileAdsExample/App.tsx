@@ -1,3 +1,4 @@
+/* eslint-disable react-native/no-inline-styles */
 /* eslint-disable no-console, @typescript-eslint/no-explicit-any */
 
 import React, {RefObject, useEffect, useRef, useState} from 'react';
@@ -38,6 +39,8 @@ import MobileAds, {
   NativeAssetType,
   NativeMediaAspectRatio,
   NativeMediaView,
+  PreloadedBannerAd,
+  PreloadedBannerAdView,
   type PaidEvent,
   RevenuePrecisions,
   RewardedAd,
@@ -203,7 +206,11 @@ class BannerTest implements AutoExecutableTest {
   bannerAdSize: BannerAdSize | string;
   maxHeight?: number;
   width?: number;
-  constructor(bannerAdSize: BannerAdSize | string, maxHeight?: number, width?: number) {
+  constructor(
+    bannerAdSize: BannerAdSize | string,
+    maxHeight?: number,
+    width?: number,
+  ) {
     this.bannerAdSize = bannerAdSize;
     this.bannerRef = React.createRef();
     this.maxHeight = maxHeight;
@@ -487,7 +494,7 @@ const NativeComponent = () => {
     nativeAd.addAdEventListener(NativeAdEventType.CLICKED, () => {
       console.debug('Native ad clicked');
     });
-    nativeAd.addAdEventListener(NativeAdEventType.PAID, (payload) => {
+    nativeAd.addAdEventListener(NativeAdEventType.PAID, payload => {
       console.debug('Paid', payload);
     });
     nativeAd.addAdEventListener(NativeAdEventType.VIDEO_PLAYED, () => {
@@ -1154,11 +1161,177 @@ class DebugMenuTest implements AutoExecutableTest {
   }
 }
 
+const PreloadedBannerComponent = React.forwardRef<View>((_, ref) => {
+  const [preloadedAds, setPreloadedAds] = useState<PreloadedBannerAd[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [displayAds, setDisplayAds] = useState(false);
+
+  const preloadAds = async () => {
+    console.log('Preloading ads app...', PreloadedBannerAd);
+    setLoading(true);
+    setError(null);
+    try {
+      const ads = await PreloadedBannerAd.preload([
+        {
+          unitId: TestIds.BANNER,
+          sizes: [BannerAdSize.BANNER],
+          requestOptions: {
+            requestNonPersonalizedAdsOnly: true,
+          },
+        },
+        {
+          unitId: TestIds.BANNER,
+          sizes: [BannerAdSize.LARGE_BANNER],
+          requestOptions: {
+            requestNonPersonalizedAdsOnly: true,
+          },
+        },
+      ]);
+      setPreloadedAds(ads);
+      //print width and height of each ad
+      ads.forEach(ad => {
+        console.log(
+          '**** each ad size',
+          `${Platform.OS} Ad ${ad.unitId} size: ${ad.width}x${ad.height}`,
+        );
+      });
+      console.log(`${Platform.OS} Preloaded ${ads.length} ads successfully`);
+    } catch (e) {
+      const errorMessage = `${Platform.OS} Preload error: ${e}`;
+      console.error(errorMessage);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const destroyAds = () => {
+    preloadedAds.forEach(ad => ad.destroy());
+    setPreloadedAds([]);
+    setDisplayAds(false);
+    console.log(`${Platform.OS} Destroyed all preloaded ads`);
+  };
+
+  useEffect(() => {
+    // Cleanup on unmount
+    return () => {
+      preloadedAds.forEach(ad => ad.destroy());
+    };
+  }, [preloadedAds]);
+
+  return (
+    <View style={styles.testSpacing} ref={ref}>
+      <Text style={{fontSize: 18, fontWeight: 'bold', marginBottom: 10}}>
+        Preloaded Banner Ads Test
+      </Text>
+
+      <Button
+        title={loading ? 'Preloading...' : 'Preload Ads'}
+        disabled={loading}
+        onPress={preloadAds}
+      />
+
+      <Button
+        title="Destroy All Ads"
+        disabled={preloadedAds.length === 0}
+        onPress={destroyAds}
+      />
+
+      <Button title="Display Ads" onPress={() => setDisplayAds(true)} />
+
+      <Text>Preloaded: {preloadedAds.length} ads</Text>
+      {error && <Text style={{color: 'red'}}>Error: {error}</Text>}
+
+      {displayAds &&
+        preloadedAds.map((ad, index) => (
+          <View
+            key={`${ad.unitId}-${index}`}
+            style={{
+              marginVertical: 10,
+              padding: 10,
+              backgroundColor: '#f0f0f0',
+              borderRadius: 5,
+            }}>
+            <Text>
+              Ad {index + 1}: {ad.size} ({ad.width}x{ad.height})
+            </Text>
+            <PreloadedBannerAdView
+              preloadedAd={ad}
+              onAdLoaded={event => {
+                console.log(
+                  'Adloaded',
+                  `${Platform.OS} Preloaded ad ${index} loaded:`,
+                  event.width,
+                  'x',
+                  event.height,
+                );
+              }}
+              onAdFailedToLoad={event => {
+                console.error(
+                  `${Platform.OS} Preloaded ad ${index} failed:`,
+                  event.message,
+                );
+              }}
+              onAdOpened={() => {
+                console.log(`${Platform.OS} Preloaded ad ${index} opened`);
+              }}
+              onAdClosed={() => {
+                console.log(`${Platform.OS} Preloaded ad ${index} closed`);
+              }}
+              onAdClicked={() => {
+                console.log(`${Platform.OS} Preloaded ad ${index} clicked`);
+              }}
+              onPaid={event => {
+                console.log(
+                  `${Platform.OS} Preloaded ad ${index} paid:`,
+                  event.value,
+                  event.currency,
+                );
+              }}
+              style={{
+                backgroundColor: '#fff',
+                borderRadius: 4,
+                marginTop: 5,
+              }}
+            />
+          </View>
+        ))}
+    </View>
+  );
+});
+PreloadedBannerComponent.displayName = 'PreloadedBannerComponent';
+
+class PreloadedBannerTest implements AutoExecutableTest {
+  getPath(): string {
+    return 'PreloadedBanner';
+  }
+
+  getTestType(): TestType {
+    return TestType.Interactive;
+  }
+
+  render(onMount: (component: any) => void): React.ReactNode {
+    return <PreloadedBannerComponent ref={onMount} />;
+  }
+
+  execute(component: any, complete: (result: TestResult) => void): void {
+    const results = new TestResult();
+    try {
+      // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
+    } catch (error) {
+      results.errors.push('Received unexpected error...');
+    } finally {
+      complete(results);
+    }
+  }
+}
+
 // All tests must be registered - a future feature will allow auto-bundling of tests via configured path or regex
 Object.keys(BannerAdSize).forEach(bannerAdSize => {
-  if (bannerAdSize === "INLINE_ADAPTIVE_BANNER") {
-    TestRegistry.registerTest(new BannerTest(bannerAdSize, 100))
-    TestRegistry.registerTest(new BannerTest(bannerAdSize, 200, 200))
+  if (bannerAdSize === 'INLINE_ADAPTIVE_BANNER') {
+    TestRegistry.registerTest(new BannerTest(bannerAdSize, 100));
+    TestRegistry.registerTest(new BannerTest(bannerAdSize, 200, 200));
   }
   TestRegistry.registerTest(new BannerTest(bannerAdSize));
 });
@@ -1188,6 +1361,7 @@ TestRegistry.registerTest(
 );
 TestRegistry.registerTest(new GAMInterstitialTest());
 TestRegistry.registerTest(new DebugMenuTest());
+TestRegistry.registerTest(new PreloadedBannerTest());
 
 const App = () => {
   return (

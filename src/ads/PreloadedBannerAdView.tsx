@@ -16,12 +16,14 @@
  */
 
 import React, { useEffect, useRef } from 'react';
+import { ViewStyle } from 'react-native';
 import { AdEventType } from '../AdEventType';
 import { PreloadedBannerAd } from './PreloadedBannerAd';
 import GoogleMobileAdsPreloadedBannerView from '../specs/components/GoogleMobileAdsPreloadedBannerViewNativeComponent';
 
 export interface PreloadedBannerAdViewProps {
   preloadedAd: PreloadedBannerAd;
+  style?: ViewStyle;
   onAdLoaded?: (event: { width: number; height: number }) => void;
   onAdFailedToLoad?: (event: { code: number; message: string }) => void;
   onAdOpened?: () => void;
@@ -35,6 +37,7 @@ export interface PreloadedBannerAdViewProps {
 
 export function PreloadedBannerAdView({
   preloadedAd,
+  style,
   onAdLoaded,
   onAdFailedToLoad,
   onAdOpened,
@@ -76,15 +79,24 @@ export function PreloadedBannerAdView({
     onAppEvent,
   ]);
 
+  useEffect(() => {
+    console.log('preloaded updated', preloadedAd);
+  }, [preloadedAd]);
+
+  console.log('PreloadedBannerAdView', preloadedAd);
+
   return (
     <GoogleMobileAdsPreloadedBannerView
       ref={ref}
       unitId={preloadedAd.unitId}
       onNativeEvent={() => {}} // Events are handled through PreloadedBannerAd event listeners
-      style={{
-        width: preloadedAd.width,
-        height: preloadedAd.height,
-      }}
+      style={[
+        style,
+        {
+          width: preloadedAd.width,
+          height: preloadedAd.height,
+        },
+      ]}
     />
   );
 }

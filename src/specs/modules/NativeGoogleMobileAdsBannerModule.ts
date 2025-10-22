@@ -28,6 +28,7 @@ export type PreloadedBannerAdRequest = {
 
 export type PreloadedBannerAdProps = {
   unitId: string;
+  size: string;
   width: number;
   height: number;
 };

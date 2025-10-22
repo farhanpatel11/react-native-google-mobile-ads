@@ -18,6 +18,7 @@ package io.invertase.googlemobileads
  */
 
 import android.app.Activity
+import android.util.Log
 import android.view.ViewGroup
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -39,14 +40,19 @@ import io.invertase.googlemobileads.common.SharedUtils
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.List
+import java.util.concurrent.CountDownLatch
 
 @ReactModule(ReactNativeGoogleMobileAdsBannerModule.NAME)
 class ReactNativeGoogleMobileAdsBannerModule(
-  reactContext: ReactApplicationContext
+  val reactContext: ReactApplicationContext
 ) : NativeGoogleMobileAdsBannerModuleSpec(reactContext) {
   private val preloadedAds = HashMap<String, PreloadedBannerHolder>()
 
   override fun getName() = NAME
+
+   // <-- Add this import at the top of the file
+
+// ... inside the ReactNativeGoogleMobileAdsBannerModule class
 
   @ReactMethod
   override fun preload(
@@ -54,40 +60,77 @@ class ReactNativeGoogleMobileAdsBannerModule(
     promise: Promise
   ) {
     val results = Arguments.createArray()
-    
-    for (i in 0 until adRequests.size()) {
-      val adRequest = adRequests.getMap(i)
-      val unitId = adRequest?.getString("unitId") ?: continue
-      val sizes = adRequest.getArray("sizes")
-      val requestOptions = adRequest.getMap("requestOptions")
-      val manualImpressionsEnabled = adRequest.getBoolean("manualImpressionsEnabled")
-      
-      val holder = PreloadedBannerHolder(unitId, sizes, requestOptions, manualImpressionsEnabled)
-      holder.loadAd { success ->
-        if (success) {
-          preloadedAds[unitId] = holder
-          val result = Arguments.createMap()
-          result.putString("unitId", unitId)
-          result.putDouble("width", holder.width)
-          result.putDouble("height", holder.height)
-          results.pushMap(result)
+    // Use a CountDownLatch to wait for all ad loading callbacks to complete
+    // without blocking the thread in a busy-wait loop.
+    val latch = CountDownLatch(adRequests.size())
+
+    reactContext.runOnUiQueueThread {
+      if (adRequests.size() == 0) {
+        promise.resolve(results)
+        return@runOnUiQueueThread
+      }
+
+      for (i in 0 until adRequests.size()) {
+        val adRequest = adRequests.getMap(i)
+        val unitId = adRequest.getString("unitId") ?: run {
+          latch.countDown() // Decrement latch for this request and continue
+          return@runOnUiQueueThread
+        }
+        val sizes = adRequest.getArray("sizes")
+        val requestOptions = adRequest.getMap("requestOptions")
+        val manualImpressionsEnabled = adRequest.getBoolean("manualImpressionsEnabled")
+
+        val holder = PreloadedBannerHolder(unitId, sizes, requestOptions, manualImpressionsEnabled)
+        holder.loadAd { success ->
+          if (success) {
+            // Synchronize access to preloadedAds and results to ensure thread safety,
+            // as callbacks may execute concurrently.
+            synchronized(this) {
+              Log.d("MyAppFarhan", "preload success $unitId and size ${holder.size}")
+              preloadedAds[unitId] = holder
+              val result = Arguments.createMap()
+              result.putString("unitId", unitId)
+              result.putString("size", holder.size)
+              result.putDouble("width", holder.width)
+              result.putDouble("height", holder.height)
+              results.pushMap(result)
+            }
+          }
+          // Signal that this ad load has finished, regardless of success or failure.
+          latch.countDown()
         }
       }
     }
-    
-    promise.resolve(results)
+
+    // This thread will wait here efficiently until the latch count reaches zero.
+    // It is better to use a background thread for this to avoid blocking the main JS thread.
+    Thread {
+      try {
+        latch.await() // Wait for all ad loads to complete
+        promise.resolve(results)
+      } catch (e: InterruptedException) {
+        Thread.currentThread().interrupt()
+        promise.resolve(Arguments.createArray())
+        Log.d("MyAppFarhan", "preload interrupted")
+        //promise.reject("E_PRELOAD_INTERRUPTED", "Ad preloading was interrupted.", e)
+      }
+    }.start()
   }
 
   @ReactMethod
   override fun destroy(unitId: String) {
-    preloadedAds[unitId]?.destroy()
-    preloadedAds.remove(unitId)
+    reactContext.runOnUiQueueThread {
+      preloadedAds[unitId]?.destroy()
+      preloadedAds.remove(unitId)
+    }
   }
 
   override fun invalidate() {
     super.invalidate()
-    preloadedAds.values.forEach { it.destroy() }
-    preloadedAds.clear()
+    reactContext.runOnUiQueueThread {
+      preloadedAds.values.forEach { it.destroy() }
+      preloadedAds.clear()
+    }
   }
 
   fun getPreloadedAdView(unitId: String): BaseAdView? {
@@ -95,7 +138,12 @@ class ReactNativeGoogleMobileAdsBannerModule(
   }
 
   fun consumePreloadedAd(unitId: String): BaseAdView? {
+
     val holder = preloadedAds.remove(unitId)
+    Log.d(
+      "MyAppFarhan",
+      "consumePreloadedAd $unitId and view ${holder?.adView}"
+    )
     return holder?.adView
   }
 
@@ -105,18 +153,23 @@ class ReactNativeGoogleMobileAdsBannerModule(
     private val requestOptions: ReadableMap?,
     private val manualImpressionsEnabled: Boolean
   ) {
+    private var loadedListener: ((Boolean) -> Unit)? = null
     var adView: BaseAdView? = null
       private set
+    var size: String = ""
     var width: Double = 0.0
     var height: Double = 0.0
 
     private val adListener: AdListener = object : AdListener() {
       override fun onAdLoaded() {
+
         val adSize = adView?.adSize
         if (adSize != null) {
           width = adSize.width.toDouble()
           height = adSize.height.toDouble()
+          Log.d("MyAppFarhan", "onAdLoaded adsize w:$width and h:$height")
         }
+        loadedListener?.let { it(true) }
         emitAdEvent("loaded", Arguments.createMap().apply {
           putDouble("width", width)
           putDouble("height", height)
@@ -124,6 +177,7 @@ class ReactNativeGoogleMobileAdsBannerModule(
       }
 
       override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+        loadedListener?.let { it(false) }
         emitAdEvent("failed_to_load", Arguments.createMap().apply {
           putInt("code", loadAdError.code)
           putString("message", loadAdError.message)
@@ -176,12 +230,13 @@ class ReactNativeGoogleMobileAdsBannerModule(
       }
 
       adView?.let { adView ->
-        adView.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS)
-        adView.setOnPaidEventListener(paidEventListener)
-        adView.setAdListener(adListener)
+        adView.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        adView.onPaidEventListener = paidEventListener
+        adView.adListener = adListener
+        this.loadedListener = loadedListener
 
         if (adView is AdManagerAdView) {
-          adView.setAppEventListener(appEventListener)
+          adView.appEventListener = appEventListener
         }
 
         // Set ad unit ID
@@ -195,13 +250,19 @@ class ReactNativeGoogleMobileAdsBannerModule(
             if (sizeString != null) {
               val adSize = ReactNativeGoogleMobileAdsCommon.getAdSize(sizeString, null)
               sizeList.add(adSize)
+              // Store the first size string as the primary size
+              if (i == 0) {
+                this.size = sizeString
+              }
             }
           }
         }
 
         if (sizeList.isNotEmpty()) {
           if (adView is AdManagerAdView) {
-            adView.setAdSizes(sizeList.toTypedArray())
+            // Create a Java array directly
+            val javaArray = sizeList.toTypedArray()
+            adView.setAdSizes(*javaArray)
             if (manualImpressionsEnabled) {
               adView.setManualImpressionsEnabled(true)
             }
@@ -211,26 +272,20 @@ class ReactNativeGoogleMobileAdsBannerModule(
         }
 
         // Build and load ad request
-        val adRequest = requestOptions?.let { 
+        val adRequest = requestOptions?.let {
           ReactNativeGoogleMobileAdsCommon.buildAdRequest(it)
         } ?: AdRequest.Builder().build()
 
         adView.loadAd(adRequest)
-        loadedListener(true)
       } ?: run {
         loadedListener(false)
       }
     }
 
     fun destroy() {
-      adView?.let { adView ->
-        adView.setAdListener(null)
-        if (adView is AdManagerAdView) {
-          adView.setAppEventListener(null)
-        }
-        adView.destroy()
-      }
+      adView?.destroy()
       adView = null
+      loadedListener = null
     }
 
     private fun emitAdEvent(type: String, eventData: ReadableMap?) {
