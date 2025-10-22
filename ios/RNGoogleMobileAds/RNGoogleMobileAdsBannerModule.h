@@ -17,7 +17,34 @@
 
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
+#import <GoogleMobileAds/GoogleMobileAds.h>
+
+@class RNGoogleMobileAdsBannerModule;
+
+@interface PreloadedBannerHolder : NSObject <GADBannerViewDelegate, GADAdSizeDelegate>
+
+@property (nonatomic, strong) NSString *unitId;
+@property (nonatomic, strong) NSString *size;
+@property (nonatomic, assign) double width;
+@property (nonatomic, assign) double height;
+@property (nonatomic, strong) GADBannerView *bannerView;
+@property (nonatomic, copy) void (^loadedCallback)(BOOL success);
+@property (nonatomic, weak) RNGoogleMobileAdsBannerModule *bannerModule;
+
+- (instancetype)initWithUnitId:(NSString *)unitId
+                         sizes:(NSArray *)sizes
+                 requestOptions:(NSDictionary *)requestOptions
+       manualImpressionsEnabled:(BOOL)manualImpressionsEnabled
+                   loadedCallback:(void (^)(BOOL success))loadedCallback
+                   bannerModule:(RNGoogleMobileAdsBannerModule *)bannerModule;
+
+- (void)loadAd;
+- (void)destroy;
+
+@end
 
 @interface RNGoogleMobileAdsBannerModule : RCTEventEmitter <RCTBridgeModule>
+
+- (GADBannerView *)consumePreloadedAd:(NSString *)unitId size:(NSString *)size;
 
 @end
