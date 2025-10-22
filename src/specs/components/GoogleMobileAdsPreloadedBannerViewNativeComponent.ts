@@ -36,6 +36,7 @@ export type NativeEvent = {
 
 export interface NativeProps extends ViewProps {
   unitId: string;
+  size: string;
   onNativeEvent: BubblingEventHandler<NativeEvent>;
 }
 
