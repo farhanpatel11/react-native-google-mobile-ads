@@ -89,6 +89,7 @@ export function PreloadedBannerAdView({
     <GoogleMobileAdsPreloadedBannerView
       ref={ref}
       unitId={preloadedAd.unitId}
+      size={preloadedAd.size}
       onNativeEvent={() => {}} // Events are handled through PreloadedBannerAd event listeners
       style={[
         style,

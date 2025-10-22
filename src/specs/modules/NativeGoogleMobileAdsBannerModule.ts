@@ -35,6 +35,7 @@ export type PreloadedBannerAdProps = {
 
 export type PreloadedBannerAdEventPayload = {
   unitId: string;
+  size: string;
   type: string;
   width?: number;
   height?: number;
@@ -49,7 +50,7 @@ export type PreloadedBannerAdEventPayload = {
 
 export interface Spec extends TurboModule {
   preload(adRequests: PreloadedBannerAdRequest[]): Promise<PreloadedBannerAdProps[]>;
-  destroy(unitId: string): void;
+  destroy(unitId: string, size: string): void;
   readonly onAdEvent: EventEmitter<PreloadedBannerAdEventPayload>;
 }
 

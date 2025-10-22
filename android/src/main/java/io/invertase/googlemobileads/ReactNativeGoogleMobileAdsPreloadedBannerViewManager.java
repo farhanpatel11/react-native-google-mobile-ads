@@ -19,6 +19,7 @@ package io.invertase.googlemobileads;
 
 import android.util.Log;
 import android.view.ViewGroup;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 
@@ -34,6 +35,7 @@ import com.facebook.react.uimanager.events.EventDispatcher;
 import com.google.android.gms.ads.BaseAdView;
 
 import io.invertase.googlemobileads.common.ReactNativeAdView;
+import io.invertase.googlemobileads.OnNativeEvent;
 
 import java.util.Map;
 
@@ -68,15 +70,27 @@ public class ReactNativeGoogleMobileAdsPreloadedBannerViewManager
 
   @ReactProp(name = "unitId")
   public void setUnitId(ReactNativeAdView reactViewGroup, String unitId) {
+    // Store unitId for later use
+    reactViewGroup.setTag(unitId);
+  }
+
+  @ReactProp(name = "size")
+  public void setSize(ReactNativeAdView reactViewGroup, String size) {
+    String unitId = (String) reactViewGroup.getTag();
+    if (unitId == null) {
+      Log.e("MyAppFarhan", "setSize called before setUnitId");
+      return;
+    }
+
     ReactNativeGoogleMobileAdsBannerModule bannerModule =
       ((ReactContext) reactViewGroup.getContext())
         .getNativeModule(ReactNativeGoogleMobileAdsBannerModule.class);
 
-    Log.d("MyAppFarhan", "setUnitId " + unitId + "viewgrp" + reactViewGroup);
+    Log.d("MyAppFarhan", "setSize " + size + " for unitId " + unitId + " viewgrp" + reactViewGroup);
 
     if (bannerModule != null) {
-      BaseAdView cachedAdView = bannerModule.consumePreloadedAd(unitId);
-      Log.d("MyAppFarhan", "setUnitId banner module" + cachedAdView);
+      BaseAdView cachedAdView = bannerModule.consumePreloadedAd(unitId, size);
+      Log.d("MyAppFarhan", "setSize banner module" + cachedAdView);
       if (cachedAdView != null) {
         // Remove any existing ad view
         BaseAdView existingAdView = getAdView(reactViewGroup);
@@ -96,7 +110,7 @@ public class ReactNativeGoogleMobileAdsPreloadedBannerViewManager
         double width = cachedAdView.getAdSize().getWidth();
         double height = cachedAdView.getAdSize().getHeight();
         WritableMap payload = Arguments.createMap();
-        Log.d("MyAppFarhan", "setUnitId adsize width "+width + "height "+height );
+        Log.d("MyAppFarhan", "setSize adsize width "+width + "height "+height );
         payload.putDouble("width", width);
         payload.putDouble("height", height);
         sendEvent(reactViewGroup, EVENT_AD_LOADED, payload);
@@ -104,7 +118,7 @@ public class ReactNativeGoogleMobileAdsPreloadedBannerViewManager
         // No cached ad available, send error event
         WritableMap payload = Arguments.createMap();
         payload.putInt("code", 1); // ERROR_CODE_NO_FILL
-        payload.putString("message", "No preloaded ad available for unitId: " + unitId);
+        payload.putString("message", "No preloaded ad available for unitId: " + unitId + " size: " + size);
         sendEvent(reactViewGroup, EVENT_AD_FAILED_TO_LOAD, payload);
       }
     }

@@ -69,11 +69,11 @@ export class PreloadedBannerAd {
     this.eventEmitter = new EventEmitter();
   }
 
-  private onPreloadedBannerAdEvent({ unitId, type, ...data }: PreloadedBannerAdEventPayload) {
-    if (this.unitId !== unitId) {
+  private onPreloadedBannerAdEvent({ unitId, size, type, ...data }: PreloadedBannerAdEventPayload) {
+    if (this.unitId !== unitId || this.size !== size) {
       return;
     }
-    console.log('onPreloadedBannerAdEvent', unitId, type, data);
+    console.log('onPreloadedBannerAdEvent', unitId, size, type, data);
     this.eventEmitter.emit(type, data);
   }
 
@@ -98,7 +98,7 @@ export class PreloadedBannerAd {
   }
 
   destroy() {
-    NativeGoogleMobileAdsBannerModule.destroy(this.unitId);
+    NativeGoogleMobileAdsBannerModule.destroy(this.unitId, this.size);
     this.nativeEventSubscription.remove();
     this.removeAllAdEventListeners();
   }

@@ -87,7 +87,8 @@ class ReactNativeGoogleMobileAdsBannerModule(
             // as callbacks may execute concurrently.
             synchronized(this) {
               Log.d("MyAppFarhan", "preload success $unitId and size ${holder.size}")
-              preloadedAds[unitId] = holder
+              val cacheKey = "${unitId}_${holder.size}"
+              preloadedAds[cacheKey] = holder
               val result = Arguments.createMap()
               result.putString("unitId", unitId)
               result.putString("size", holder.size)
@@ -118,10 +119,11 @@ class ReactNativeGoogleMobileAdsBannerModule(
   }
 
   @ReactMethod
-  override fun destroy(unitId: String) {
+  override fun destroy(unitId: String, size: String) {
     reactContext.runOnUiQueueThread {
-      preloadedAds[unitId]?.destroy()
-      preloadedAds.remove(unitId)
+      val cacheKey = "${unitId}_${size}"
+      preloadedAds[cacheKey]?.destroy()
+      preloadedAds.remove(cacheKey)
     }
   }
 
@@ -137,12 +139,12 @@ class ReactNativeGoogleMobileAdsBannerModule(
     return preloadedAds[unitId]?.adView
   }
 
-  fun consumePreloadedAd(unitId: String): BaseAdView? {
-
-    val holder = preloadedAds.remove(unitId)
+  fun consumePreloadedAd(unitId: String, size: String): BaseAdView? {
+    val cacheKey = "${unitId}_${size}"
+    val holder = preloadedAds.remove(cacheKey)
     Log.d(
       "MyAppFarhan",
-      "consumePreloadedAd $unitId and view ${holder?.adView}"
+      "consumePreloadedAd $cacheKey and view ${holder?.adView}"
     )
     return holder?.adView
   }
@@ -291,6 +293,7 @@ class ReactNativeGoogleMobileAdsBannerModule(
     private fun emitAdEvent(type: String, eventData: ReadableMap?) {
       val payload = Arguments.createMap()
       payload.putString("unitId", unitId)
+      payload.putString("size", size)
       payload.putString("type", type)
       eventData?.let { payload.merge(it) }
       this@ReactNativeGoogleMobileAdsBannerModule.emitOnAdEvent(payload)
