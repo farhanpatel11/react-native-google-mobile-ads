@@ -50,14 +50,17 @@ export class PreloadedBannerAd {
     this.width = props.width;
     this.height = props.height;
 
-    if ('onAdEvent' in NativeGoogleMobileAdsBannerModule) {
+    if (
+      'onAdEvent' in NativeGoogleMobileAdsBannerModule &&
+      typeof NativeGoogleMobileAdsBannerModule.onAdEvent === 'function'
+    ) {
       this.nativeEventSubscription = NativeGoogleMobileAdsBannerModule.onAdEvent(
         this.onPreloadedBannerAdEvent.bind(this),
       );
     } else {
       let eventEmitter;
       if (Platform.OS === 'ios') {
-        eventEmitter = new NativeEventEmitter(NativeGoogleMobileAdsBannerModule);
+        eventEmitter = new NativeEventEmitter(NativeGoogleMobileAdsBannerModule as any);
       } else {
         eventEmitter = new NativeEventEmitter();
       }
