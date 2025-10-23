@@ -125,11 +125,18 @@ RCT_EXPORT_METHOD(destroy:(NSString *)unitId
 
 - (id)consumePreloadedAd:(NSString *)unitId size:(NSString *)size {
   NSString *cacheKey = [NSString stringWithFormat:@"%@_%@", unitId, size];
+  NSLog(@"RNGoogleMobileAdsBannerModule: consumePreloadedAd called for unitId: %@, size: %@, cacheKey: %@", unitId, size, cacheKey);
+  NSLog(@"RNGoogleMobileAdsBannerModule: Available preloaded ads: %@", _preloadedAds.allKeys);
+  
   PreloadedBannerHolder *holder = _preloadedAds[cacheKey];
   if (holder) {
+    NSLog(@"RNGoogleMobileAdsBannerModule: Found preloaded ad holder");
     id bannerView = holder.bannerView;
     [_preloadedAds removeObjectForKey:cacheKey];
+    NSLog(@"RNGoogleMobileAdsBannerModule: Consumed preloaded ad, remaining: %@", _preloadedAds.allKeys);
     return bannerView;
+  } else {
+    NSLog(@"RNGoogleMobileAdsBannerModule: No preloaded ad found for cacheKey: %@", cacheKey);
   }
   return nil;
 }

@@ -63,8 +63,11 @@ RCT_EXPORT_VIEW_PROPERTY(onNativeEvent, RCTBubblingEventBlock)
 
 - (void)updateBannerView {
   if (!self.unitId || !self.size) {
+    NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Missing unitId or size");
     return;
   }
+  
+  NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Updating banner view for unitId: %@, size: %@", self.unitId, self.size);
   
   // Remove existing banner view
   if (self.bannerView) {
@@ -75,9 +78,22 @@ RCT_EXPORT_VIEW_PROPERTY(onNativeEvent, RCTBubblingEventBlock)
   // Get the banner module and consume the preloaded ad
   RNGoogleMobileAdsBannerModule *bannerModule = [self.bridge moduleForClass:[RNGoogleMobileAdsBannerModule class]];
   
-  if (bannerModule) {
+  if (!bannerModule) {
+    NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Banner module not found");
+    if (self.onNativeEvent) {
+      self.onNativeEvent(@{
+        @"type": @"onAdFailedToLoad",
+        @"code": @1,
+        @"message": @"Banner module not found"
+      });
+    }
+    return;
+  }
+  
+  @try {
     id bannerView = [bannerModule consumePreloadedAd:self.unitId size:self.size];
     if (bannerView) {
+      NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Successfully consumed preloaded ad");
       self.bannerView = bannerView;
       [self addSubview:bannerView];
       
@@ -95,6 +111,7 @@ RCT_EXPORT_VIEW_PROPERTY(onNativeEvent, RCTBubblingEventBlock)
         }
       }
     } else {
+      NSLog(@"RNGoogleMobileAdsPreloadedBannerView: No preloaded ad available for unitId: %@ size: %@", self.unitId, self.size);
       // Send error event if no preloaded ad available
       if (self.onNativeEvent) {
         self.onNativeEvent(@{
@@ -103,6 +120,15 @@ RCT_EXPORT_VIEW_PROPERTY(onNativeEvent, RCTBubblingEventBlock)
           @"message": [NSString stringWithFormat:@"No preloaded ad available for unitId: %@ size: %@", self.unitId, self.size]
         });
       }
+    }
+  } @catch (NSException *exception) {
+    NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Exception in updateBannerView: %@", exception.reason);
+    if (self.onNativeEvent) {
+      self.onNativeEvent(@{
+        @"type": @"onAdFailedToLoad",
+        @"code": @1,
+        @"message": [NSString stringWithFormat:@"Exception: %@", exception.reason ?: @"Unknown error"]
+      });
     }
   }
 }
