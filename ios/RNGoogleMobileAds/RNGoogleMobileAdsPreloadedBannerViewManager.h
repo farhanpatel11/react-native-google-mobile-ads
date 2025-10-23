@@ -17,6 +17,14 @@
 
 #import <React/RCTViewManager.h>
 
+#ifdef RCT_NEW_ARCH_ENABLED
+#import <React/RCTComponentViewProtocol.h>
+#endif
+
 @interface RNGoogleMobileAdsPreloadedBannerViewManager : RCTViewManager
 
 @end
+
+#ifdef RCT_NEW_ARCH_ENABLED
+extern "C" Class<RCTComponentViewProtocol> RNGoogleMobileAdsPreloadedBannerViewCls(void);
+#endif
