@@ -145,17 +145,156 @@ RCT_EXPORT_VIEW_PROPERTY(onNativeEvent, RCTBubblingEventBlock)
 #endif // RCT_NEW_ARCH_ENABLED
 
 #ifdef RCT_NEW_ARCH_ENABLED
-#import <React/RCTComponentViewProtocol.h>
-#import <React/RCTViewComponentView.h>
+#import "RNGoogleMobileAdsPreloadedBannerView.h"
+#import "RNGoogleMobileAdsBannerModule.h"
+#import "RNGoogleMobileAdsCommon.h"
 
-@interface RNGoogleMobileAdsPreloadedBannerViewFabric : RCTViewComponentView
+#import <react/renderer/components/RNGoogleMobileAdsSpec/ComponentDescriptors.h>
+#import <react/renderer/components/RNGoogleMobileAdsSpec/EventEmitters.h>
+#import <react/renderer/components/RNGoogleMobileAdsSpec/Props.h>
+#import <react/renderer/components/RNGoogleMobileAdsSpec/RCTComponentViewHelpers.h>
+
+#import "RCTFabricComponentsPlugins.h"
+
+using namespace facebook::react;
+
+@interface RCTBridge (Private)
++ (RCTBridge *)currentBridge;
 @end
 
-@implementation RNGoogleMobileAdsPreloadedBannerViewFabric
+@interface RNGoogleMobileAdsPreloadedBannerView () <RCTRNGoogleMobileAdsPreloadedBannerViewViewProtocol>
 @end
 
-// Stub implementation for Fabric - preloaded banner view is not yet fully supported in new architecture
-extern "C" Class<RCTComponentViewProtocol> RNGoogleMobileAdsPreloadedBannerViewCls(void) {
-  return RNGoogleMobileAdsPreloadedBannerViewFabric.class;
+@implementation RNGoogleMobileAdsPreloadedBannerView
+
++ (ComponentDescriptorProvider)componentDescriptorProvider {
+  return concreteComponentDescriptorProvider<RNGoogleMobileAdsPreloadedBannerViewComponentDescriptor>();
 }
+
+- (instancetype)initWithFrame:(CGRect)frame {
+  if (self = [super initWithFrame:frame]) {
+    static const auto defaultProps = std::make_shared<const RNGoogleMobileAdsPreloadedBannerViewProps>();
+    _props = defaultProps;
+  }
+  
+  return self;
+}
+
+- (void)prepareForRecycle {
+  [super prepareForRecycle];
+  static const auto defaultProps = std::make_shared<const RNGoogleMobileAdsPreloadedBannerViewProps>();
+  _props = defaultProps;
+  
+  if (_bannerView) {
+    [_bannerView removeFromSuperview];
+    _bannerView = nil;
+  }
+  _unitId = nil;
+  _size = nil;
+}
+
+- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps {
+  const auto &oldViewProps =
+      *std::static_pointer_cast<RNGoogleMobileAdsPreloadedBannerViewProps const>(_props);
+  const auto &newViewProps =
+      *std::static_pointer_cast<RNGoogleMobileAdsPreloadedBannerViewProps const>(props);
+  
+  BOOL shouldUpdate = false;
+  
+  if (oldViewProps.unitId != newViewProps.unitId) {
+    _unitId = [[NSString alloc] initWithUTF8String:newViewProps.unitId.c_str()];
+    shouldUpdate = true;
+  }
+  
+  if (oldViewProps.size != newViewProps.size) {
+    _size = [[NSString alloc] initWithUTF8String:newViewProps.size.c_str()];
+    shouldUpdate = true;
+  }
+  
+  if (shouldUpdate && _unitId && _size) {
+    [self consumeAndDisplayAd];
+  }
+  
+  [super updateProps:props oldProps:oldProps];
+}
+
+- (void)consumeAndDisplayAd {
+  // Remove existing banner view
+  if (_bannerView) {
+    [_bannerView removeFromSuperview];
+    _bannerView = nil;
+  }
+  
+  // Get the banner module using the current bridge
+  RCTBridge *bridge = [RCTBridge currentBridge];
+  if (!bridge) {
+    NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Bridge not found");
+    [self emitFailedToLoadEvent:@"Bridge not found"];
+    return;
+  }
+  
+  RNGoogleMobileAdsBannerModule *bannerModule = [bridge moduleForClass:[RNGoogleMobileAdsBannerModule class]];
+  
+  if (!bannerModule) {
+    NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Banner module not found");
+    [self emitFailedToLoadEvent:@"Banner module not found"];
+    return;
+  }
+  
+  @try {
+    id bannerView = [bannerModule consumePreloadedAd:_unitId size:_size];
+    if (bannerView) {
+      NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Successfully consumed preloaded ad");
+      _bannerView = bannerView;
+      [self addSubview:bannerView];
+      
+      // Send loaded event with dimensions
+      if ([bannerView respondsToSelector:@selector(bounds)]) {
+        CGRect bounds = [bannerView bounds];
+        
+        if (_eventEmitter != nullptr) {
+          std::dynamic_pointer_cast<const facebook::react::RNGoogleMobileAdsPreloadedBannerViewEventEmitter>(
+              _eventEmitter)
+              ->onNativeEvent(facebook::react::RNGoogleMobileAdsPreloadedBannerViewEventEmitter::OnNativeEvent{
+                  .type = "onAdLoaded",
+                  .width = bounds.size.width,
+                  .height = bounds.size.height});
+        }
+      }
+    } else {
+      NSLog(@"RNGoogleMobileAdsPreloadedBannerView: No preloaded ad available for unitId: %@ size: %@", _unitId, _size);
+      [self emitFailedToLoadEvent:[NSString stringWithFormat:@"No preloaded ad available for unitId: %@ size: %@", _unitId, _size]];
+    }
+  } @catch (NSException *exception) {
+    NSLog(@"RNGoogleMobileAdsPreloadedBannerView: Exception in consumeAndDisplayAd: %@", exception.reason);
+    [self emitFailedToLoadEvent:[NSString stringWithFormat:@"Exception: %@", exception.reason ?: @"Unknown error"]];
+  }
+}
+
+- (void)emitFailedToLoadEvent:(NSString *)message {
+  if (_eventEmitter != nullptr) {
+    std::dynamic_pointer_cast<const facebook::react::RNGoogleMobileAdsPreloadedBannerViewEventEmitter>(
+        _eventEmitter)
+        ->onNativeEvent(facebook::react::RNGoogleMobileAdsPreloadedBannerViewEventEmitter::OnNativeEvent{
+            .type = "onAdFailedToLoad",
+            .code = "1",
+            .message = std::string([message UTF8String])});
+  }
+}
+
+- (void)dealloc {
+  if (_bannerView) {
+    [_bannerView removeFromSuperview];
+    _bannerView = nil;
+  }
+}
+
+@end
+
+#pragma mark - RNGoogleMobileAdsPreloadedBannerViewCls
+
+Class<RCTComponentViewProtocol> RNGoogleMobileAdsPreloadedBannerViewCls(void) {
+  return RNGoogleMobileAdsPreloadedBannerView.class;
+}
+
 #endif

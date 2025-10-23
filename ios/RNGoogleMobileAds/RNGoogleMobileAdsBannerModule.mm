@@ -273,6 +273,7 @@ manualImpressionsEnabled:(BOOL)manualImpressionsEnabled
   
   if (self.loadedCallback) {
     self.loadedCallback(YES);
+    self.loadedCallback = nil;
   }
 }
 
@@ -288,6 +289,7 @@ manualImpressionsEnabled:(BOOL)manualImpressionsEnabled
   
   if (self.loadedCallback) {
     self.loadedCallback(NO);
+    self.loadedCallback = nil;
   }
 }
 

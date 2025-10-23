@@ -13,7 +13,7 @@
   "dependencies": {
     "react": "18.3.1",
     "react-native": "0.76.9",
-    "react-native-google-mobile-ads": "https://github.com/farhanpatel11/react-native-google-mobile-ads.git#v1.0.1"
+    "react-native-google-mobile-ads": "https://github.com/farhanpatel11/react-native-google-mobile-ads.git#v1.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
