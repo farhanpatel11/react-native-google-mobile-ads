@@ -20,4 +20,6 @@
 
 @interface RNGoogleMobileAdsBannerModule : RCTEventEmitter <RCTBridgeModule>
 
+- (id)consumePreloadedAd:(NSString *)unitId size:(NSString *)size;
+
 @end
