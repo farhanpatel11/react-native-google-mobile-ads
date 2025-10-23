@@ -15,17 +15,21 @@
  *
  */
 
+#ifndef RCT_NEW_ARCH_ENABLED
 #import "RNGoogleMobileAdsPreloadedBannerViewManager.h"
 #import "RNGoogleMobileAdsBannerModule.h"
 #import <React/RCTView.h>
 #import <React/RCTBridge.h>
 #import <React/RCTUIManager.h>
+#import <React/RCTEventDispatcher.h>
 
 @interface RNGoogleMobileAdsPreloadedBannerView : RCTView
 
 @property (nonatomic, copy) NSString *unitId;
 @property (nonatomic, copy) NSString *size;
 @property (nonatomic, strong) id bannerView;
+@property (nonatomic, copy) RCTBubblingEventBlock onNativeEvent;
+@property (nonatomic, weak) RCTBridge *bridge;
 
 @end
 
@@ -34,11 +38,14 @@
 RCT_EXPORT_MODULE(RNGoogleMobileAdsPreloadedBannerView)
 
 - (UIView *)view {
-  return [[RNGoogleMobileAdsPreloadedBannerView alloc] init];
+  RNGoogleMobileAdsPreloadedBannerView *view = [[RNGoogleMobileAdsPreloadedBannerView alloc] init];
+  view.bridge = self.bridge;
+  return view;
 }
 
 RCT_EXPORT_VIEW_PROPERTY(unitId, NSString)
 RCT_EXPORT_VIEW_PROPERTY(size, NSString)
+RCT_EXPORT_VIEW_PROPERTY(onNativeEvent, RCTBubblingEventBlock)
 
 @end
 
@@ -67,6 +74,7 @@ RCT_EXPORT_VIEW_PROPERTY(size, NSString)
   
   // Get the banner module and consume the preloaded ad
   RNGoogleMobileAdsBannerModule *bannerModule = [self.bridge moduleForClass:[RNGoogleMobileAdsBannerModule class]];
+  
   if (bannerModule) {
     id bannerView = [bannerModule consumePreloadedAd:self.unitId size:self.size];
     if (bannerView) {
@@ -76,10 +84,6 @@ RCT_EXPORT_VIEW_PROPERTY(size, NSString)
       // Send loaded event with dimensions
       if ([bannerView respondsToSelector:@selector(bounds)]) {
         CGRect bounds = [bannerView bounds];
-        NSDictionary *eventData = @{
-          @"width": @(bounds.size.width),
-          @"height": @(bounds.size.height)
-        };
         
         // Send event to React Native
         if (self.onNativeEvent) {
@@ -89,6 +93,15 @@ RCT_EXPORT_VIEW_PROPERTY(size, NSString)
             @"height": @(bounds.size.height)
           });
         }
+      }
+    } else {
+      // Send error event if no preloaded ad available
+      if (self.onNativeEvent) {
+        self.onNativeEvent(@{
+          @"type": @"onAdFailedToLoad",
+          @"code": @1,
+          @"message": [NSString stringWithFormat:@"No preloaded ad available for unitId: %@ size: %@", self.unitId, self.size]
+        });
       }
     }
   }
@@ -102,3 +115,21 @@ RCT_EXPORT_VIEW_PROPERTY(size, NSString)
 }
 
 @end
+
+#endif // RCT_NEW_ARCH_ENABLED
+
+#ifdef RCT_NEW_ARCH_ENABLED
+#import <React/RCTComponentViewProtocol.h>
+#import <React/RCTViewComponentView.h>
+
+@interface RNGoogleMobileAdsPreloadedBannerViewFabric : RCTViewComponentView
+@end
+
+@implementation RNGoogleMobileAdsPreloadedBannerViewFabric
+@end
+
+// Stub implementation for Fabric - preloaded banner view is not yet fully supported in new architecture
+extern "C" Class<RCTComponentViewProtocol> RNGoogleMobileAdsPreloadedBannerViewCls(void) {
+  return RNGoogleMobileAdsPreloadedBannerViewFabric.class;
+}
+#endif

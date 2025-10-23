@@ -151,6 +151,11 @@ RCT_EXPORT_METHOD(destroy:(NSString *)unitId
   [self sendEventWithName:@"RNGMABannerAdEvent" body:payload];
 }
 
+// Add the emitOnAdEvent method that the TypeScript spec expects
+- (void)emitOnAdEvent:(NSDictionary *)payload {
+  [self sendEventWithName:@"RNGMABannerAdEvent" body:payload];
+}
+
 @end
 
 @implementation PreloadedBannerHolder
@@ -204,11 +209,15 @@ manualImpressionsEnabled:(BOOL)manualImpressionsEnabled
   
   // Set up paid event handler
   banner.paidEventHandler = ^(GADAdValue *value) {
-    [self.module emitAdEvent:@"paid" unitId:self.unitId size:self.size data:@{
+    NSDictionary *payload = @{
+      @"type": @"paid",
+      @"unitId": self.unitId,
+      @"size": self.size,
       @"value": @(value.value.doubleValue),
       @"precision": @(value.precision),
       @"currency": value.currencyCode
-    }];
+    };
+    [self.module emitOnAdEvent:payload];
   };
   
   // Build and load request
@@ -246,10 +255,14 @@ manualImpressionsEnabled:(BOOL)manualImpressionsEnabled
   self.width = bannerView.bounds.size.width;
   self.height = bannerView.bounds.size.height;
   
-  [self.module emitAdEvent:@"loaded" unitId:self.unitId size:self.size data:@{
+  NSMutableDictionary *payload = [@{
+    @"type": @"loaded",
+    @"unitId": self.unitId,
+    @"size": self.size,
     @"width": @(self.width),
     @"height": @(self.height)
-  }];
+  } mutableCopy];
+  [self.module emitOnAdEvent:payload];
   
   if (self.loadedCallback) {
     self.loadedCallback(YES);
@@ -258,7 +271,13 @@ manualImpressionsEnabled:(BOOL)manualImpressionsEnabled
 
 - (void)bannerView:(GADBannerView *)bannerView didFailToReceiveAdWithError:(NSError *)error {
   NSDictionary *errorData = [RNGoogleMobileAdsCommon getCodeAndMessageFromAdError:error];
-  [self.module emitAdEvent:@"failed_to_load" unitId:self.unitId size:self.size data:errorData];
+  NSMutableDictionary *payload = [@{
+    @"type": @"failed_to_load",
+    @"unitId": self.unitId,
+    @"size": self.size
+  } mutableCopy];
+  [payload addEntriesFromDictionary:errorData];
+  [self.module emitOnAdEvent:payload];
   
   if (self.loadedCallback) {
     self.loadedCallback(NO);
@@ -266,28 +285,52 @@ manualImpressionsEnabled:(BOOL)manualImpressionsEnabled
 }
 
 - (void)bannerViewWillPresentScreen:(GADBannerView *)bannerView {
-  [self.module emitAdEvent:@"opened" unitId:self.unitId size:self.size data:nil];
+  NSDictionary *payload = @{
+    @"type": @"opened",
+    @"unitId": self.unitId,
+    @"size": self.size
+  };
+  [self.module emitOnAdEvent:payload];
 }
 
 - (void)bannerViewDidDismissScreen:(GADBannerView *)bannerView {
-  [self.module emitAdEvent:@"closed" unitId:self.unitId size:self.size data:nil];
+  NSDictionary *payload = @{
+    @"type": @"closed",
+    @"unitId": self.unitId,
+    @"size": self.size
+  };
+  [self.module emitOnAdEvent:payload];
 }
 
 - (void)bannerViewDidRecordImpression:(GADBannerView *)bannerView {
-  [self.module emitAdEvent:@"impression" unitId:self.unitId size:self.size data:nil];
+  NSDictionary *payload = @{
+    @"type": @"impression",
+    @"unitId": self.unitId,
+    @"size": self.size
+  };
+  [self.module emitOnAdEvent:payload];
 }
 
 - (void)bannerViewDidRecordClick:(GADBannerView *)bannerView {
-  [self.module emitAdEvent:@"clicked" unitId:self.unitId size:self.size data:nil];
+  NSDictionary *payload = @{
+    @"type": @"clicked",
+    @"unitId": self.unitId,
+    @"size": self.size
+  };
+  [self.module emitOnAdEvent:payload];
 }
 
 #pragma mark - GADAppEventDelegate
 
 - (void)adView:(nonnull GADBannerView *)banner didReceiveAppEvent:(nonnull NSString *)name withInfo:(nullable NSString *)info {
-  [self.module emitAdEvent:@"app_event" unitId:self.unitId size:self.size data:@{
+  NSDictionary *payload = @{
+    @"type": @"app_event",
+    @"unitId": self.unitId,
+    @"size": self.size,
     @"name": name,
     @"data": info ?: @""
-  }];
+  };
+  [self.module emitOnAdEvent:payload];
 }
 
 @end
