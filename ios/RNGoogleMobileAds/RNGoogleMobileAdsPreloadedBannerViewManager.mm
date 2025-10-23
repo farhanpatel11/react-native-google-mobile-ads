@@ -16,9 +16,16 @@
  */
 
 #import "RNGoogleMobileAdsPreloadedBannerViewManager.h"
+#import "RNGoogleMobileAdsBannerModule.h"
 #import <React/RCTView.h>
+#import <React/RCTBridge.h>
+#import <React/RCTUIManager.h>
 
 @interface RNGoogleMobileAdsPreloadedBannerView : RCTView
+
+@property (nonatomic, copy) NSString *unitId;
+@property (nonatomic, copy) NSString *size;
+@property (nonatomic, strong) id bannerView;
 
 @end
 
@@ -31,29 +38,67 @@ RCT_EXPORT_MODULE(RNGoogleMobileAdsPreloadedBannerView)
 }
 
 RCT_EXPORT_VIEW_PROPERTY(unitId, NSString)
+RCT_EXPORT_VIEW_PROPERTY(size, NSString)
 
 @end
 
 @implementation RNGoogleMobileAdsPreloadedBannerView
 
-- (instancetype)init {
-  if (self = [super init]) {
-    UILabel *label = [[UILabel alloc] init];
-    label.text = @"PreloadedBannerAd not implemented on iOS";
-    label.textAlignment = NSTextAlignmentCenter;
-    label.backgroundColor = [UIColor lightGrayColor];
-    label.textColor = [UIColor darkGrayColor];
-    [self addSubview:label];
-    
-    label.translatesAutoresizingMaskIntoConstraints = NO;
-    [NSLayoutConstraint activateConstraints:@[
-      [label.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
-      [label.centerYAnchor constraintEqualToAnchor:self.centerYAnchor],
-      [label.widthAnchor constraintEqualToConstant:300],
-      [label.heightAnchor constraintEqualToConstant:50]
-    ]];
+- (void)setUnitId:(NSString *)unitId {
+  _unitId = unitId;
+  [self updateBannerView];
+}
+
+- (void)setSize:(NSString *)size {
+  _size = size;
+  [self updateBannerView];
+}
+
+- (void)updateBannerView {
+  if (!self.unitId || !self.size) {
+    return;
   }
-  return self;
+  
+  // Remove existing banner view
+  if (self.bannerView) {
+    [self.bannerView removeFromSuperview];
+    self.bannerView = nil;
+  }
+  
+  // Get the banner module and consume the preloaded ad
+  RNGoogleMobileAdsBannerModule *bannerModule = [self.bridge moduleForClass:[RNGoogleMobileAdsBannerModule class]];
+  if (bannerModule) {
+    id bannerView = [bannerModule consumePreloadedAd:self.unitId size:self.size];
+    if (bannerView) {
+      self.bannerView = bannerView;
+      [self addSubview:bannerView];
+      
+      // Send loaded event with dimensions
+      if ([bannerView respondsToSelector:@selector(bounds)]) {
+        CGRect bounds = [bannerView bounds];
+        NSDictionary *eventData = @{
+          @"width": @(bounds.size.width),
+          @"height": @(bounds.size.height)
+        };
+        
+        // Send event to React Native
+        if (self.onNativeEvent) {
+          self.onNativeEvent(@{
+            @"type": @"onAdLoaded",
+            @"width": @(bounds.size.width),
+            @"height": @(bounds.size.height)
+          });
+        }
+      }
+    }
+  }
+}
+
+- (void)dealloc {
+  if (self.bannerView) {
+    [self.bannerView removeFromSuperview];
+    self.bannerView = nil;
+  }
 }
 
 @end
